@@ -1,0 +1,30 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: #0b0e14;
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(94, 234, 212, 0.06), transparent 40%),
+    radial-gradient(circle at 85% 15%, rgba(168, 85, 247, 0.05), transparent 40%);
+  color: #e6e9ef;
+}
+
+::selection {
+  background: rgba(94, 234, 212, 0.25);
+}
+
+* {
+  scrollbar-color: #2a2f3a #0b0e14;
+  scrollbar-width: thin;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
