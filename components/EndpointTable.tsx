@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import MethodBadge from "./MethodBadge";
-import ImportOpenApiModal from "./ImportOpenApiModal";
 import type { MockEndpoint } from "@/lib/types";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import ImportOpenApiModal from "./ImportOpenApiModal";
+import MethodBadge from "./MethodBadge";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 const UNTAGGED = "__untagged__";
