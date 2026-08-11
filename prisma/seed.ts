@@ -11,10 +11,22 @@ async function main() {
         summary: "List all users",
         tags: ["users"],
         params: [
-          { name: "page", in: "query", type: "integer", required: false, example: 1 },
-          { name: "limit", in: "query", type: "integer", required: false, example: 20 },
+          {
+            name: "page",
+            in: "query",
+            type: "integer",
+            required: false,
+            example: 1,
+          },
+          {
+            name: "limit",
+            in: "query",
+            type: "integer",
+            required: false,
+            example: 20,
+          },
         ],
-        requestBody: null,
+        requestBody: null as any,
         responseBody: {
           data: [{ id: 1, name: "Budi Santoso", email: "budi@example.com" }],
           page: 1,
@@ -27,9 +39,21 @@ async function main() {
         method: "GET",
         summary: "Get a single user",
         tags: ["users"],
-        params: [{ name: "id", in: "path", type: "string", required: true, example: "1" }],
-        requestBody: null,
-        responseBody: { id: 1, name: "Budi Santoso", email: "budi@example.com" },
+        params: [
+          {
+            name: "id",
+            in: "path",
+            type: "string",
+            required: true,
+            example: "1",
+          },
+        ],
+        requestBody: null as any,
+        responseBody: {
+          id: 1,
+          name: "Budi Santoso",
+          email: "budi@example.com",
+        },
         statusCode: 200,
       },
       {
@@ -39,7 +63,11 @@ async function main() {
         tags: ["users"],
         params: [],
         requestBody: { name: "Budi Santoso", email: "budi@example.com" },
-        responseBody: { id: 2, name: "Budi Santoso", email: "budi@example.com" },
+        responseBody: {
+          id: 2,
+          name: "Budi Santoso",
+          email: "budi@example.com",
+        },
         statusCode: 201,
       },
     ],
