@@ -1,28 +1,23 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const allowedOrigins = [
-  `http://localhost:5173`,
-    `http://localhost:5174`,
-    `http://localhost:3000`,
-  'https://*.netlify.app',
-];
-
 export function middleware(req: NextRequest) {
   const origin = req.headers.get('origin') || '';
   const res = NextResponse.next();
 
-  // cek apakah origin ada di daftar
-  const isAllowed = allowedOrigins.some((allowed) => {
-    if (allowed.includes('*')) {
-      // wildcard match untuk netlify
-      const regex = new RegExp('^https://[a-z0-9-]+\\.netlify\\.app$');
-      return regex.test(origin);
-    }
-    return origin === allowed;
-  });
+  const regexLocalhost = /^http:\/\/localhost:\d+$/;
+  const regexNetlify = /^https:\/\/[a-z0-9-]+\.netlify\.app$/;
 
-  res.headers.set('Access-Control-Allow-Origin', isAllowed ? origin : 'null');
+  const isAllowed =
+    regexLocalhost.test(origin) || regexNetlify.test(origin);
+
+  if (isAllowed) {
+    res.headers.set('Access-Control-Allow-Origin', origin);
+    res.headers.set('Access-Control-Allow-Credentials', 'true'); // penting untuk cookie/authorization
+  } else {
+    res.headers.set('Access-Control-Allow-Origin', 'null');
+  }
+
   res.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
