@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import type { EndpointParam, MockEndpoint } from "@/lib/types";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 const PARAM_LOCATIONS = ["query", "path", "header"];
@@ -11,6 +11,179 @@ function prettyJson(value: unknown): string {
   if (value === null || value === undefined) return "";
   return JSON.stringify(value, null, 2);
 }
+
+/* ---------------------------------------------------------- */
+/* JsonEditor — textarea dengan feel text editor (Tab, auto-  */
+/* indent, auto-close bracket, syntax highlight overlay)      */
+/* ---------------------------------------------------------- */
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function highlightJson(code: string): string {
+  const escaped = escapeHtml(code);
+  return escaped.replace(
+    /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g,
+    (match, str, colon, bool) => {
+      let color = "#d19a66"; // number
+      if (str) {
+        color = colon ? "#61afef" : "#98c379"; // key : / string
+      } else if (bool || match === "null") {
+        color = "#c678dd";
+      }
+      return `<span style="color:${color}">${match}</span>`;
+    },
+  );
+}
+
+interface JsonEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  rows?: number;
+  hasError?: boolean;
+}
+
+function JsonEditor({
+  value,
+  onChange,
+  placeholder,
+  rows = 10,
+  hasError,
+}: JsonEditorProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
+
+  function syncScroll() {
+    if (textareaRef.current && preRef.current) {
+      preRef.current.scrollTop = textareaRef.current.scrollTop;
+      preRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  }
+
+  function currentLineIndent(text: string, caretPos: number) {
+    const lineStart = text.lastIndexOf("\n", caretPos - 1) + 1;
+    const line = text.slice(lineStart, caretPos);
+    return { lineStart, indent: line.match(/^\s*/)?.[0] ?? "" };
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const el = e.currentTarget;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+
+    // Tab / Shift+Tab -> indent, jangan pindah fokus
+    if (e.key === "Tab") {
+      e.preventDefault();
+      if (e.shiftKey) {
+        const { lineStart, indent } = currentLineIndent(value, start);
+        const stripped = indent.replace(/^ {1,2}/, "");
+        const removed = indent.length - stripped.length;
+        if (removed > 0) {
+          const next =
+            value.slice(0, lineStart) +
+            stripped +
+            value.slice(lineStart + indent.length);
+          onChange(next);
+          requestAnimationFrame(() => {
+            el.selectionStart = el.selectionEnd = Math.max(
+              start - removed,
+              lineStart,
+            );
+          });
+        }
+        return;
+      }
+      const next = value.slice(0, start) + "  " + value.slice(end);
+      onChange(next);
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + 2;
+      });
+      return;
+    }
+
+    // Auto-close pasangan { } [ ] " "
+    const pairs: Record<string, string> = { "{": "}", "[": "]", '"': '"' };
+    if (pairs[e.key] && start === end) {
+      e.preventDefault();
+      const close = pairs[e.key];
+      const next = value.slice(0, start) + e.key + close + value.slice(end);
+      onChange(next);
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + 1;
+      });
+      return;
+    }
+
+    // Auto-indent saat Enter
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const { indent } = currentLineIndent(value, start);
+      const before = value.slice(0, start);
+      const after = value.slice(start);
+      const lastChar = before.trim().slice(-1);
+      const nextChar = after[0];
+
+      if (lastChar === "{" || lastChar === "[") {
+        const extraIndent = indent + "  ";
+        let insertion = "\n" + extraIndent;
+        const cursorPos = start + insertion.length;
+        if (nextChar === "}" || nextChar === "]") {
+          insertion += "\n" + indent;
+        }
+        onChange(before + insertion + after);
+        requestAnimationFrame(() => {
+          el.selectionStart = el.selectionEnd = cursorPos;
+        });
+        return;
+      }
+
+      const insertion = "\n" + indent;
+      onChange(before + insertion + after);
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + insertion.length;
+      });
+    }
+  }
+
+  return (
+    <div
+      className={`relative rounded-md border ${
+        hasError ? "border-del/60" : "border-border"
+      } bg-canvas overflow-hidden`}
+      style={{ height: `${rows * 1.5}em` }}
+    >
+      <pre
+        ref={preRef}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 m-0 overflow-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-xs leading-5"
+        style={{ color: "#9da5b4", tabSize: 2 }}
+      >
+        <code
+          dangerouslySetInnerHTML={{
+            __html: (value ? highlightJson(value) : "") + "\n",
+          }}
+        />
+      </pre>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onScroll={syncScroll}
+        placeholder={placeholder}
+        spellCheck={false}
+        className="absolute inset-0 h-full w-full resize-none overflow-auto whitespace-pre-wrap break-words bg-transparent px-3 py-2 font-mono text-xs leading-5 placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+        style={{ color: "transparent", caretColor: "#e5e5e5", tabSize: 2 }}
+      />
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------- */
+/* EndpointForm                                                */
+/* ---------------------------------------------------------- */
 
 export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
   const router = useRouter();
@@ -22,26 +195,38 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
   const [statusCode, setStatusCode] = useState(initial?.statusCode ?? 200);
   const [tagsInput, setTagsInput] = useState((initial?.tags ?? []).join(", "));
   const [params, setParams] = useState<EndpointParam[]>(initial?.params ?? []);
-  const [requestBody, setRequestBody] = useState(prettyJson(initial?.requestBody));
-  const [responseBody, setResponseBody] = useState(prettyJson(initial?.responseBody));
+  const [requestBody, setRequestBody] = useState(
+    prettyJson(initial?.requestBody),
+  );
+  const [responseBody, setResponseBody] = useState(
+    prettyJson(initial?.responseBody),
+  );
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   function addParam() {
-    setParams((p) => [...p, { name: "", in: "query", type: "string", required: false, example: "" }]);
+    setParams((p) => [
+      ...p,
+      { name: "", in: "query", type: "string", required: false, example: "" },
+    ]);
   }
 
   function updateParam(index: number, patch: Partial<EndpointParam>) {
-    setParams((p) => p.map((param, i) => (i === index ? { ...param, ...patch } : param)));
+    setParams((p) =>
+      p.map((param, i) => (i === index ? { ...param, ...patch } : param)),
+    );
   }
 
   function removeParam(index: number) {
     setParams((p) => p.filter((_, i) => i !== index));
   }
 
-  function parseJsonField(raw: string, field: string): unknown | null | undefined {
+  function parseJsonField(
+    raw: string,
+    field: string,
+  ): unknown | null | undefined {
     if (!raw.trim()) return null;
     try {
       return JSON.parse(raw);
@@ -56,7 +241,8 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
 
     const nextErrors: Record<string, string> = {};
     if (!path.trim()) nextErrors.path = "Path wajib diisi";
-    else if (!path.startsWith("/")) nextErrors.path = "Path harus diawali dengan /";
+    else if (!path.startsWith("/"))
+      nextErrors.path = "Path harus diawali dengan /";
 
     let parsedRequestBody: unknown = null;
     let parsedResponseBody: unknown = null;
@@ -96,11 +282,14 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
       responseBody: parsedResponseBody,
     };
 
-    const res = await fetch(isEdit ? `/api/endpoints/${initial!.id}` : "/api/endpoints", {
-      method: isEdit ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const res = await fetch(
+      isEdit ? `/api/endpoints/${initial!.id}` : "/api/endpoints",
+      {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
 
     setSaving(false);
 
@@ -117,7 +306,9 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
       {serverError && (
-        <p className="rounded-md border border-del/30 bg-del/10 px-3 py-2 text-sm text-del">{serverError}</p>
+        <p className="rounded-md border border-del/30 bg-del/10 px-3 py-2 text-sm text-del">
+          {serverError}
+        </p>
       )}
 
       <div className="rounded-xl border border-border bg-surface p-5 space-y-4">
@@ -146,12 +337,16 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
               placeholder="/api/users/:id atau /api/users/{id}"
               className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm font-mono text-ink placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
             />
-            {errors.path && <p className="mt-1 text-xs text-del">{errors.path}</p>}
+            {errors.path && (
+              <p className="mt-1 text-xs text-del">{errors.path}</p>
+            )}
           </div>
         </div>
 
         <div>
-          <label className="block text-xs text-muted mb-1">Deskripsi (opsional)</label>
+          <label className="block text-xs text-muted mb-1">
+            Deskripsi (opsional)
+          </label>
           <input
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
@@ -162,7 +357,9 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-muted mb-1">Status code respons</label>
+            <label className="block text-xs text-muted mb-1">
+              Status code respons
+            </label>
             <input
               type="number"
               value={statusCode}
@@ -171,7 +368,9 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
             />
           </div>
           <div>
-            <label className="block text-xs text-muted mb-1">Tags (pisahkan koma)</label>
+            <label className="block text-xs text-muted mb-1">
+              Tags (pisahkan koma)
+            </label>
             <input
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
@@ -184,7 +383,9 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
 
       <div className="rounded-xl border border-border bg-surface p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink">Parameter (query / path / header)</h2>
+          <h2 className="text-sm font-semibold text-ink">
+            Parameter (query / path / header)
+          </h2>
           <button
             type="button"
             onClick={addParam}
@@ -201,7 +402,10 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
         ) : (
           <div className="space-y-2">
             {params.map((p, i) => (
-              <div key={i} className="grid grid-cols-[1fr_100px_90px_70px_1fr_auto] gap-2 items-center">
+              <div
+                key={i}
+                className="grid grid-cols-[1fr_100px_90px_70px_1fr_auto] gap-2 items-center"
+              >
                 <input
                   value={p.name}
                   onChange={(e) => updateParam(i, { name: e.target.value })}
@@ -229,7 +433,9 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
                   <input
                     type="checkbox"
                     checked={p.required}
-                    onChange={(e) => updateParam(i, { required: e.target.checked })}
+                    onChange={(e) =>
+                      updateParam(i, { required: e.target.checked })
+                    }
                   />
                   wajib
                 </label>
@@ -254,26 +460,34 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border border-border bg-surface p-5 space-y-2">
-          <h2 className="text-sm font-semibold text-ink">Request body (payload)</h2>
-          <textarea
+          <h2 className="text-sm font-semibold text-ink">
+            Request body (payload)
+          </h2>
+          <JsonEditor
             value={requestBody}
-            onChange={(e) => setRequestBody(e.target.value)}
+            onChange={setRequestBody}
             placeholder='{ "name": "Budi" }'
             rows={10}
-            className="w-full rounded-md border border-border bg-canvas px-3 py-2 font-mono text-xs text-ink placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+            hasError={!!errors.requestBody}
           />
-          {errors.requestBody && <p className="text-xs text-del">{errors.requestBody}</p>}
+          {errors.requestBody && (
+            <p className="text-xs text-del">{errors.requestBody}</p>
+          )}
         </div>
         <div className="rounded-xl border border-border bg-surface p-5 space-y-2">
-          <h2 className="text-sm font-semibold text-ink">Response body (mock)</h2>
-          <textarea
+          <h2 className="text-sm font-semibold text-ink">
+            Response body (mock)
+          </h2>
+          <JsonEditor
             value={responseBody}
-            onChange={(e) => setResponseBody(e.target.value)}
+            onChange={setResponseBody}
             placeholder='{ "id": 1, "name": "Budi" }'
             rows={10}
-            className="w-full rounded-md border border-border bg-canvas px-3 py-2 font-mono text-xs text-ink placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+            hasError={!!errors.responseBody}
           />
-          {errors.responseBody && <p className="text-xs text-del">{errors.responseBody}</p>}
+          {errors.responseBody && (
+            <p className="text-xs text-del">{errors.responseBody}</p>
+          )}
         </div>
       </div>
 
@@ -283,7 +497,11 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
           disabled={saving}
           className="rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-canvas hover:bg-accent/90 disabled:opacity-40"
         >
-          {saving ? "Menyimpan..." : isEdit ? "Simpan perubahan" : "Buat endpoint"}
+          {saving
+            ? "Menyimpan..."
+            : isEdit
+              ? "Simpan perubahan"
+              : "Buat endpoint"}
         </button>
         <button
           type="button"
