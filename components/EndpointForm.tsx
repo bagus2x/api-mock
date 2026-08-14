@@ -49,7 +49,7 @@ function JsonEditor({
   value,
   onChange,
   placeholder,
-  rows = 10,
+  rows = 18,
   hasError,
 }: JsonEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -157,7 +157,7 @@ function JsonEditor({
       <pre
         ref={preRef}
         aria-hidden
-        className="pointer-events-none absolute inset-0 m-0 overflow-auto whitespace-pre-wrap break-words px-3 py-2 font-mono text-xs leading-5"
+        className="pointer-events-none absolute inset-0 m-0 overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-mono text-sm leading-6"
         style={{ color: "#9da5b4", tabSize: 2 }}
       >
         <code
@@ -174,7 +174,7 @@ function JsonEditor({
         onScroll={syncScroll}
         placeholder={placeholder}
         spellCheck={false}
-        className="absolute inset-0 h-full w-full resize-none overflow-auto whitespace-pre-wrap break-words bg-transparent px-3 py-2 font-mono text-xs leading-5 placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
+        className="absolute inset-0 h-full w-full resize-none overflow-auto whitespace-pre-wrap break-words bg-transparent px-4 py-3 font-mono text-sm leading-6 placeholder:text-muted/60 focus:outline-none focus:ring-1 focus:ring-accent"
         style={{ color: "transparent", caretColor: "#e5e5e5", tabSize: 2 }}
       />
     </div>
@@ -304,7 +304,7 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-5xl">
       {serverError && (
         <p className="rounded-md border border-del/30 bg-del/10 px-3 py-2 text-sm text-del">
           {serverError}
@@ -458,8 +458,8 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-xl border border-border bg-surface p-5 space-y-2">
+      <div className="space-y-4">
+        <div className="rounded-xl border border-border bg-surface p-6 space-y-2">
           <h2 className="text-sm font-semibold text-ink">
             Request body (payload)
           </h2>
@@ -467,14 +467,14 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
             value={requestBody}
             onChange={setRequestBody}
             placeholder='{ "name": "Budi" }'
-            rows={10}
+            rows={18}
             hasError={!!errors.requestBody}
           />
           {errors.requestBody && (
             <p className="text-xs text-del">{errors.requestBody}</p>
           )}
         </div>
-        <div className="rounded-xl border border-border bg-surface p-5 space-y-2">
+        <div className="rounded-xl border border-border bg-surface p-6 space-y-2">
           <h2 className="text-sm font-semibold text-ink">
             Response body (mock)
           </h2>
@@ -482,7 +482,7 @@ export default function EndpointForm({ initial }: { initial?: MockEndpoint }) {
             value={responseBody}
             onChange={setResponseBody}
             placeholder='{ "id": 1, "name": "Budi" }'
-            rows={10}
+            rows={18}
             hasError={!!errors.responseBody}
           />
           {errors.responseBody && (
